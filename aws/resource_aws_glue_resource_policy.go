@@ -3,6 +3,8 @@ package aws
 import (
 	"fmt"
 	"log"
+	"strconv"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/glue"
@@ -27,6 +29,11 @@ func resourceAwsGlueResourcePolicy() *schema.Resource {
 				ValidateFunc:     validation.StringIsJSON,
 				DiffSuppressFunc: suppressEquivalentAwsPolicyDiffs,
 			},
+			"enable_hybrid": {
+				Type:     schema.TypeBool,
+				Default:  false,
+				Optional: true,
+			},
 		},
 	}
 }
@@ -37,6 +44,7 @@ func resourceAwsGlueResourcePolicyPut(condition string) func(d *schema.ResourceD
 
 		_, err := conn.PutResourcePolicy(&glue.PutResourcePolicyInput{
 			PolicyInJson:          aws.String(d.Get("policy").(string)),
+			EnableHybrid:          aws.String(strings.ToUpper(strconv.FormatBool(d.Get("enable_hybrid").(bool)))),
 			PolicyExistsCondition: aws.String(condition),
 		})
 		if err != nil {

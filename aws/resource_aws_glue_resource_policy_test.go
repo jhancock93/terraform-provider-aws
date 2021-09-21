@@ -15,6 +15,7 @@ func CreateTablePolicy(action string) string {
   "Version" : "2012-10-17",
   "Statement" : [
     {
+      "Sid": "TestPolicyStatement",
       "Effect" : "Allow",
       "Action" : [
         "%s"
@@ -43,9 +44,34 @@ func testAccAWSGlueResourcePolicy_basic(t *testing.T) {
 				),
 			},
 			{
-				ResourceName:      resourceName,
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"enable_hybrid"},
+			},
+		},
+	})
+}
+
+func testAccAWSGlueResourcePolicy_basic_hybrid(t *testing.T) {
+	resourceName := "aws_glue_resource_policy.test"
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		ErrorCheck:   testAccErrorCheck(t, glue.EndpointsID),
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckAWSGlueResourcePolicyDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAWSGlueResourcePolicy_Hybrid("glue:CreateTable", true),
+				Check: resource.ComposeTestCheckFunc(
+					testAccAWSGlueResourcePolicy(resourceName, "glue:CreateTable"),
+				),
+			},
+			{
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"enable_hybrid"},
 			},
 		},
 	})
@@ -60,7 +86,7 @@ func testAccAWSGlueResourcePolicy_disappears(t *testing.T) {
 		CheckDestroy: testAccCheckAWSGlueResourcePolicyDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAWSGlueResourcePolicy_Required("glue:CreateTable"),
+				Config: testAccAWSGlueResourcePolicy_Hybrid("glue:CreateTable", true),
 				Check: resource.ComposeTestCheckFunc(
 					testAccAWSGlueResourcePolicy(resourceName, "glue:CreateTable"),
 					testAccCheckResourceDisappears(testAccProvider, resourceAwsGlueResourcePolicy(), resourceName),
@@ -81,6 +107,34 @@ data "aws_region" "current" {}
 
 data "aws_iam_policy_document" "glue-example-policy" {
   statement {
+	sid = "TestPolicyStatement"
+    actions   = ["%s"]
+    resources = ["arn:${data.aws_partition.current.partition}:glue:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"]
+    principals {
+      identifiers = ["*"]
+      type        = "AWS"
+    }
+  }
+}
+
+resource "aws_glue_resource_policy" "test" {
+  policy = data.aws_iam_policy_document.glue-example-policy.json,
+  enable_hybrid = true
+}
+`, action)
+}
+
+func testAccAWSGlueResourcePolicy_Hybrid(action string, enable_hybrid bool) string {
+	return fmt.Sprintf(`
+data "aws_caller_identity" "current" {}
+
+data "aws_partition" "current" {}
+
+data "aws_region" "current" {}
+
+data "aws_iam_policy_document" "glue-example-policy" {
+  statement {
+	sid = "TestPolicyStatement"
     actions   = ["%s"]
     resources = ["arn:${data.aws_partition.current.partition}:glue:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"]
     principals {
@@ -92,8 +146,9 @@ data "aws_iam_policy_document" "glue-example-policy" {
 
 resource "aws_glue_resource_policy" "test" {
   policy = data.aws_iam_policy_document.glue-example-policy.json
+  enable_hybrid = %t
 }
-`, action)
+`, action, enable_hybrid)
 }
 
 func testAccAWSGlueResourcePolicy_update(t *testing.T) {
@@ -105,21 +160,22 @@ func testAccAWSGlueResourcePolicy_update(t *testing.T) {
 		CheckDestroy: testAccCheckAWSGlueResourcePolicyDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAWSGlueResourcePolicy_Required("glue:CreateTable"),
+				Config: testAccAWSGlueResourcePolicy_Hybrid("glue:CreateTable", true),
 				Check: resource.ComposeTestCheckFunc(
 					testAccAWSGlueResourcePolicy(resourceName, "glue:CreateTable"),
 				),
 			},
 			{
-				Config: testAccAWSGlueResourcePolicy_Required("glue:DeleteTable"),
+				Config: testAccAWSGlueResourcePolicy_Hybrid("glue:DeleteTable", true),
 				Check: resource.ComposeTestCheckFunc(
 					testAccAWSGlueResourcePolicy(resourceName, "glue:DeleteTable"),
 				),
 			},
 			{
-				ResourceName:      resourceName,
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"enable_hybrid"},
 			},
 		},
 	})
